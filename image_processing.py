@@ -25,22 +25,23 @@ def random_splitter(src, dest, test_rate, create_grayscale):
             Enables or disables grayscale targets creation.
         """
 
+    ds_path = os.path.join(src, "dataset/")
+    full_ds = os.path.join(src, "full/")
+
+    inputs = os.path.join(full_ds, "rgb")
+    targets = os.path.join(full_ds, "grayscale")
+
+    if os.path.exists(ds_path) is False:
+        os.makedirs(ds_path)
+    if os.path.exists(full_ds) is False:
+        os.makedirs(full_ds)
+    if os.path.exists(inputs) is False:
+        os.makedirs(inputs)
+    if os.path.exists(targets) is False:
+        os.makedirs(targets)
+
     if create_grayscale:
         k = 0
-        ds_path = os.path.join(src, "dataset/")
-        full_ds = os.path.join(src, "full/")
-
-        inputs = os.path.join(full_ds, "rgb")
-        targets = os.path.join(full_ds, "grayscale")
-
-        if os.path.exists(ds_path) is False:
-            os.makedirs(ds_path)
-        if os.path.exists(full_ds) is False:
-            os.makedirs(full_ds)
-        if os.path.exists(inputs) is False:
-            os.makedirs(inputs)
-        if os.path.exists(targets) is False:
-            os.makedirs(targets)
 
         for root, _, files in os.walk(src):
             for f in files:
@@ -65,9 +66,19 @@ def random_splitter(src, dest, test_rate, create_grayscale):
 
     val_rate = 0.1
 
-    '''splitfolders.ratio(full_ds, output=dest,
+    splitfolders.ratio(full_ds, output=dest,
                        seed=1337, ratio=(1 - (test_rate + val_rate), val_rate, test_rate), group_prefix=None,
-                       move=False)'''
+                       move=False)
+
+    for root, directories, files in os.walk(full_ds):
+        for d in directories:
+            if d == "train" or d == "val" or d == "test":
+                splitted = os.path.join(src, "splitted/")
+                if os.path.exists(splitted) is False:
+                    os.makedirs(splitted)
+                shutil.move(os.path.join(full_ds, d), splitted)
+
+    print("Splitting done")
 
 
 def main():
@@ -82,11 +93,11 @@ def main():
     args = parser.parse_args()
 
     datapath = args.datapath
-    #output = args.output
+    output = args.output
     test_rate = args.testrate
     create_grayscale = args.create_grayscale
 
-    random_splitter(datapath, None, test_rate, create_grayscale)
+    random_splitter(datapath, output, test_rate, create_grayscale)
 
 
 if __name__ == "__main__":
