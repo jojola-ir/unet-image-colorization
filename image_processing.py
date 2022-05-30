@@ -4,6 +4,7 @@ import shutil
 
 import splitfolders
 
+from os.path import exists, join
 from PIL import Image
 
 
@@ -25,19 +26,19 @@ def random_splitter(src, dest, test_rate, create_grayscale):
             Enables or disables grayscale targets creation.
         """
 
-    ds_path = os.path.join(src, "dataset/")
-    full_ds = os.path.join(src, "full/")
+    ds_path = join(src, "dataset/")
+    full_ds = join(src, "full/")
 
-    inputs = os.path.join(full_ds, "rgb")
-    targets = os.path.join(full_ds, "grayscale")
+    inputs = join(full_ds, "rgb")
+    targets = join(full_ds, "grayscale")
 
-    if os.path.exists(ds_path) is False:
+    if exists(ds_path) is False:
         os.makedirs(ds_path)
-    if os.path.exists(full_ds) is False:
+    if exists(full_ds) is False:
         os.makedirs(full_ds)
-    if os.path.exists(inputs) is False:
+    if exists(inputs) is False:
         os.makedirs(inputs)
-    if os.path.exists(targets) is False:
+    if exists(targets) is False:
         os.makedirs(targets)
 
     if create_grayscale:
@@ -46,17 +47,17 @@ def random_splitter(src, dest, test_rate, create_grayscale):
         for root, _, files in os.walk(src):
             for f in files:
                 if not f.endswith(".DS_Store"):
-                    file = os.path.join(root, f)
+                    file = join(root, f)
                     filename = f.split('.')[0]
                     img_format = f.split(".")[-1]
                     rgb_img = Image.open(file)
                     lab_img = rgb_img.convert('L')
 
-                    if os.path.exists(os.path.join(inputs, f"{filename}.{img_format}")) is False:
-                        rgb_img.save(os.path.join(inputs, f"{filename}.{img_format}"))
-                    if os.path.exists(os.path.join(targets, f"{filename}.{img_format}")) is False:
-                        lab_img.save(os.path.join(targets, f"{filename}.{img_format}"))
-                    if os.path.exists(os.path.join(ds_path, f)) is False:
+                    if exists(join(inputs, f"{filename}.{img_format}")) is False:
+                        rgb_img.save(join(inputs, f"{filename}.{img_format}"))
+                    if exists(join(targets, f"{filename}.{img_format}")) is False:
+                        lab_img.save(join(targets, f"{filename}.{img_format}"))
+                    if exists(join(ds_path, f)) is False:
                         k += 1
                         shutil.move(file, ds_path)
 
@@ -73,10 +74,10 @@ def random_splitter(src, dest, test_rate, create_grayscale):
     for root, directories, files in os.walk(full_ds):
         for d in directories:
             if d == "train" or d == "val" or d == "test":
-                splitted = os.path.join(src, "splitted/")
-                if os.path.exists(splitted) is False:
+                splitted = join(src, "splitted/")
+                if exists(splitted) is False:
                     os.makedirs(splitted)
-                shutil.move(os.path.join(full_ds, d), splitted)
+                shutil.move(join(full_ds, d), splitted)
 
     print("Splitting done")
 
