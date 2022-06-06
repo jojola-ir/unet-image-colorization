@@ -12,7 +12,7 @@ from skimage.util import img_as_ubyte
 from PIL import Image, ImageCms
 
 
-def random_splitter(src, dest, test_rate, create_lab):
+def in_memory_splitter(src, dest, test_rate, create_lab):
     """Splits generated images (slices) into train/val/test subdirectories.
 
         Parameters
@@ -126,7 +126,7 @@ def main():
     test_rate = args.testrate
     create_lab = args.create_lab
 
-    random_splitter(datapath, output, test_rate, create_lab)
+    in_memory_splitter(datapath, output, test_rate, create_lab)
 
 
 if __name__ == "__main__":
