@@ -1,3 +1,4 @@
+import numpy as np
 import argparse
 import os
 import shutil
@@ -8,11 +9,11 @@ from tqdm import tqdm
 from os.path import exists, join
 from skimage import io
 from skimage.color import rgb2lab
-from skimage.util import img_as_ubyte
+from sklearn.model_selection import train_test_split
 from PIL import Image, ImageCms
 
 
-def in_memory_splitter(src, dest, test_rate, create_lab):
+def raw_splitter(src, dest, test_rate, create_lab):
     """Splits generated images (slices) into train/val/test subdirectories.
 
         Parameters
@@ -97,7 +98,7 @@ def in_memory_splitter(src, dest, test_rate, create_lab):
                        seed=1337, ratio=(1 - (test_rate + val_rate), val_rate, test_rate), group_prefix=None,
                        move=False)
 
-    print("Splitting to train/val/test...")
+    print("Splitting into train/val/test...")
 
     for root, directories, files in os.walk(full_ds):
         for d in directories:
@@ -110,6 +111,67 @@ def in_memory_splitter(src, dest, test_rate, create_lab):
     print("Splitting done")
 
 
+def npz_images_converter(src, test_rate):
+    """Splits generated images (slices) into train/val/test and stores them in .npz file.
+
+            Parameters
+            ----------
+            src : str
+                Path to the slices directory.
+
+            dest : str
+                Path to the destination directory.
+
+            test_rate : float
+                Test images rate.
+            """
+
+    ds_path = join(src, "img_dataset/")
+
+    if exists(ds_path) is False:
+        os.makedirs(ds_path)
+
+    file_count = len([name for name in os.listdir(src) if name.endswith(".jpg")])
+    print("Converting RGB images to LAB...")
+
+    inputs = []
+    targets = []
+
+    for root, _, files in os.walk(src):
+        for f in tqdm(files, total=file_count):
+            if not f.endswith(".DS_Store"):
+                file = join(root, f)
+                rgb_img = io.imread(file)
+                lab_img = rgb2lab(rgb_img)
+
+                input = lab_img[:,:,0]
+                target = lab_img[:,:,1:]
+                inputs.append(input)
+                targets.append(target)
+
+                if exists(join(ds_path, f)) is False:
+                    shutil.move(file, ds_path)
+
+    assert len(inputs) == len(targets), "inputs and targets must be of the same number"
+
+    val_rate = 0.1
+
+    print("Splitting into train/val/test...")
+
+    X_train, X_test, y_train, y_test = train_test_split(inputs, targets, test_size=test_rate, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=val_rate, random_state=42)
+
+    print("Saving in .npz file...")
+
+    filename = join(src, "lab_dataset.npz")
+    np.savez(file=filename,
+                        X_train=X_train, y_train=y_train,
+                        X_val=X_val, y_val=y_val,
+                        X_test=X_test, y_test=y_test)
+
+    print("Done !")
+
+
 def main():
     """This is the main function"""
 
@@ -117,6 +179,7 @@ def main():
     parser.add_argument("--datapath", help="path to the dataset")
     parser.add_argument("--output", "-o", help="path to the output")
     parser.add_argument("--testrate", "-t", help="part of test set", default=0.2)
+    parser.add_argument("--raw", help="splits raw images directly on disk", default=False, action="store_true")
     parser.add_argument("--create_lab", "-c", help="create lab images for train", default=False, action="store_true")
 
     args = parser.parse_args()
@@ -124,9 +187,14 @@ def main():
     datapath = args.datapath
     output = args.output
     test_rate = args.testrate
+    raw = args.raw
     create_lab = args.create_lab
 
-    in_memory_splitter(datapath, output, test_rate, create_lab)
+    if raw:
+        raw_splitter(datapath, output, test_rate, create_lab)
+    else:
+        npz_images_converter(datapath, test_rate)
+
 
 
 if __name__ == "__main__":
