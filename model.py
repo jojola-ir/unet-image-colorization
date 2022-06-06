@@ -8,7 +8,7 @@ from tensorflow import keras
 
 
 def unet(n_levels, initial_features=32, n_blocks=2, kernel_size=3,
-                    pooling_size=2, in_channels=3, out_channels=3):
+                    pooling_size=2, in_channels=1, out_channels=2):
     """Build a neural network composed of UNET architecture.
 
     Parameters
@@ -39,6 +39,10 @@ def unet(n_levels, initial_features=32, n_blocks=2, kernel_size=3,
             x = keras.layers.SeparableConv2D(initial_features * 2 ** level, **convpars)(x)
             if level <= n_levels // 2 and block == 0:
                 x = keras.layers.BatchNormalization()(x)
+                x = keras.layers.Dropout(0.3)(x)
+            elif level > n_levels // 2 and level < n_levels - 1 and block == 0:
+                x = keras.layers.BatchNormalization()(x)
+                x = keras.layers.Dropout(0.3)(x)
         if level < n_levels - 1:
             skips[level] = x
             x = keras.layers.MaxPool2D(pooling_size, padding="same")(x)
@@ -49,6 +53,7 @@ def unet(n_levels, initial_features=32, n_blocks=2, kernel_size=3,
         x = keras.layers.Concatenate()([x, skips[level]])
         for block in range(n_blocks):
             x = keras.layers.SeparableConv2D(initial_features * 2 ** level, **convpars)(x)
+
 
     activation = "sigmoid" if out_channels == 1 else "tanh"
     x = keras.layers.SeparableConv2D(out_channels, kernel_size=1, activation=activation, padding="same")(x)

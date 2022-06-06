@@ -5,7 +5,8 @@ from glob import glob
 
 import numpy as np
 import tensorflow as tf
-from skimage import io
+
+from skimage.color import rgb2lab
 
 
 @tf.function
@@ -24,16 +25,24 @@ def parse_image(path):
         Dictionary mapping an RGB image and its grayscale version.
     """
 
-    gray_path = tf.strings.regex_replace(path, "rgb", "grayscale")
+    a_path = tf.strings.regex_replace(path, "l_chan", "a_chan")
+    b_path = tf.strings.regex_replace(path, "l_chan", "b_chan")
 
-    rgb = tf.io.read_file(path)
-    rgb = tf.image.decode_jpeg(rgb, channels=3)
-    rgb = tf.image.convert_image_dtype(rgb, tf.uint8)
+    L = tf.io.read_file(path)
+    L = tf.image.decode_jpeg(L, channels=1)
+    L = tf.image.convert_image_dtype(L, tf.float64)
 
-    grayscale = tf.io.read_file(gray_path)
-    grayscale = tf.image.decode_jpeg(grayscale, channels=1)
+    a = tf.io.read_file(a_path)
+    a = tf.image.decode_jpeg(a, channels=1)
+    a = tf.image.convert_image_dtype(a, tf.float64)
 
-    return {"rgb": rgb, "grayscale": grayscale}
+    b = tf.io.read_file(b_path)
+    b = tf.image.decode_jpeg(b, channels=1)
+    b = tf.image.convert_image_dtype(b, tf.float64)
+
+    ab = tf.experimental.numpy.dstack((a,b))
+
+    return {"L": L, "ab": ab}
 
 
 @tf.function
@@ -53,8 +62,8 @@ def normalize(input_image, input_target):
     tuple
         Normalized image and its annotation.
     """
-    input_image = tf.cast(input_image, tf.float32) / 255.0
-    input_target = tf.cast(input_target, tf.float32) / 255.0
+    input_image = tf.cast(input_image, tf.float64) / 100
+    input_target = tf.cast(input_target, tf.float64) / 128
 
     return input_image, input_target
 
@@ -83,8 +92,8 @@ def load_image_train(datapoint):
 
     IMG_SIZE = 160
 
-    input_image = tf.image.resize_with_pad(datapoint["rgb"], IMG_SIZE, IMG_SIZE)
-    input_target = tf.image.resize_with_pad(datapoint["grayscale"], IMG_SIZE, IMG_SIZE)
+    input_image = tf.image.resize_with_pad(datapoint["L"], IMG_SIZE, IMG_SIZE)
+    input_target = tf.image.resize_with_pad(datapoint["ab"], IMG_SIZE, IMG_SIZE)
 
     if tf.random.uniform(()) > 0.5:
         input_image = tf.image.flip_left_right(input_image)
@@ -132,15 +141,23 @@ def load_image_test(datapoint):
 
     IMG_SIZE = 160
 
-    input_image = tf.image.resize_with_pad(datapoint["rgb"], IMG_SIZE, IMG_SIZE)
-    input_mask = tf.image.resize_with_pad(datapoint["grayscale"], IMG_SIZE, IMG_SIZE)
+    input_image = tf.image.resize_with_pad(datapoint["L"], IMG_SIZE, IMG_SIZE)
+    input_target = tf.image.resize_with_pad(datapoint["ab"], IMG_SIZE, IMG_SIZE)
 
-    input_image, input_mask = normalize(input_image, input_mask)
+    if tf.random.uniform(()) > 0.5:
+        input_image = tf.image.flip_left_right(input_image)
+        input_target = tf.image.flip_left_right(input_target)
 
-    return input_image, input_mask
+    if tf.random.uniform(()) > 0.5:
+        input_image = tf.image.flip_up_down(input_image)
+        input_target = tf.image.flip_up_down(input_target)
+
+    input_image, input_target = normalize(input_image, input_target)
+
+    return input_image, input_target
 
 
-def create_pipeline_performance(path, bs=256):
+def create_pipeline_performance(path, bs=32):
     """Creates datasets from a directory given as parameter.
 
     The set given as input must include training and validation directory.
@@ -169,17 +186,17 @@ def create_pipeline_performance(path, bs=256):
     val_dir = os.path.join(path, "val/")
     test_dir = os.path.join(path, "test/")
 
-    train_dataset = tf.data.Dataset.list_files(train_dir + "rgb/*.jpg", seed=TRAIN_SEED, shuffle=False)
-    val_dataset = tf.data.Dataset.list_files(val_dir + "rgb/*.jpg", seed=VAL_SEED, shuffle=False)
-    test_dataset = tf.data.Dataset.list_files(test_dir + "rgb/*.jpg", seed=TEST_SEED, shuffle=False)
+    train_dataset = tf.data.Dataset.list_files(train_dir + "l_chan/*.jpg", seed=TRAIN_SEED, shuffle=False)
+    val_dataset = tf.data.Dataset.list_files(val_dir + "l_chan/*.jpg", seed=VAL_SEED, shuffle=False)
+    test_dataset = tf.data.Dataset.list_files(test_dir + "l_chan/*.jpg", seed=TEST_SEED, shuffle=False)
 
     train_dataset = train_dataset.map(parse_image)
     val_dataset = val_dataset.map(parse_image)
     test_dataset = test_dataset.map(parse_image)
 
-    train_num = len([file for file in glob(str(os.path.join(train_dir, "rgb/*.jpg")))])
-    val_num = len([file for file in glob(str(os.path.join(val_dir, "rgb/*.jpg")))])
-    test_num = len([file for file in glob(str(os.path.join(test_dir, "rgb/*.jpg")))])
+    train_num = len([file for file in glob(str(os.path.join(train_dir, "l_chan/*.jpg")))])
+    val_num = len([file for file in glob(str(os.path.join(val_dir, "l_chan/*.jpg")))])
+    test_num = len([file for file in glob(str(os.path.join(test_dir, "l_chan/*.jpg")))])
 
     dataset = {"train": train_dataset, "val": val_dataset, "test": test_dataset}
 

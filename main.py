@@ -67,9 +67,9 @@ def create_callbacks(run_logdir, checkpoint_path="model.h5", patience=2, early_s
 
     if early_stop:
         print(f"Early stopping patience : {patience}")
-        early_stopping_cb = keras.callbacks.EarlyStopping(monitor="val_dice_coeff",
+        early_stopping_cb = keras.callbacks.EarlyStopping(monitor="val_loss",
                                                           patience=patience,
-                                                          mode="max",
+                                                          #mode="auto",
                                                           restore_best_weights=True,
                                                           verbose=1)
         callbacks.append(early_stopping_cb)
@@ -82,13 +82,6 @@ def create_callbacks(run_logdir, checkpoint_path="model.h5", patience=2, early_s
                                                  histogram_freq=1,
                                                  write_images=True)
     callbacks.append(tensorboard_cb)
-
-    '''reduce_lr_cb = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
-                                                     factor=0.5,
-                                                     patience=1,
-                                                     min_lr=0.000001,
-                                                     verbose=1)
-    callbacks.append(reduce_lr_cb)'''
 
     now = datetime.now()
     csvlogger_cb = keras.callbacks.CSVLogger(filename=f"./csv_logs/training_{now.strftime('%m_%d_%H_%M')}.csv",
@@ -136,8 +129,8 @@ def main():
     # data loading
     path = os.path.join(datapath)
 
-    NUM_TRAIN = len([name for name in os.listdir(os.path.join(path, "train/rgb/")) if name.endswith(".jpg")])
-    NUM_TEST = len([name for name in os.listdir(os.path.join(path, "test/rgb/")) if name.endswith(".jpg")])
+    NUM_TRAIN = len([name for name in os.listdir(os.path.join(path, "train/l_chan/")) if name.endswith(".jpg")])
+    NUM_TEST = len([name for name in os.listdir(os.path.join(path, "test/l_chan/")) if name.endswith(".jpg")])
 
     print(f"{NUM_TRAIN} images for train")
     print(f"{NUM_TEST} images for test")
@@ -160,7 +153,7 @@ def main():
                                                               end_learning_rate=0.000001,
                                                               power=1.5)
 
-    losses = ["MSE"]
+    losses = ["MAE"]
     metrics = ["accuracy"]
 
     optimizer = keras.optimizers.Adam(learning_rate=lr_scheduler)
