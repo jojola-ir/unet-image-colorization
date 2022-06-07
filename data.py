@@ -3,6 +3,8 @@
 import os
 from glob import glob
 
+from os.path import join
+
 import numpy as np
 import tensorflow as tf
 
@@ -30,15 +32,15 @@ def parse_image(path):
 
     L = tf.io.read_file(path)
     L = tf.image.decode_jpeg(L, channels=1)
-    L = tf.image.convert_image_dtype(L, tf.float64)
+    L = tf.image.convert_image_dtype(L, tf.float32)
 
     a = tf.io.read_file(a_path)
     a = tf.image.decode_jpeg(a, channels=1)
-    a = tf.image.convert_image_dtype(a, tf.float64)
+    a = tf.image.convert_image_dtype(a, tf.float32)
 
     b = tf.io.read_file(b_path)
     b = tf.image.decode_jpeg(b, channels=1)
-    b = tf.image.convert_image_dtype(b, tf.float64)
+    b = tf.image.convert_image_dtype(b, tf.float32)
 
     ab = tf.experimental.numpy.dstack((a,b))
 
@@ -62,8 +64,8 @@ def normalize(input_image, input_target):
     tuple
         Normalized image and its annotation.
     """
-    input_image = tf.cast(input_image, tf.float64) / 100
-    input_target = tf.cast(input_target, tf.float64) / 128
+    input_image = tf.cast(input_image, tf.float32) / 100
+    input_target = tf.cast(input_target, tf.float32) / 128
 
     return input_image, input_target
 
@@ -110,9 +112,6 @@ def load_image_train(datapoint):
 
         input_image = tf.image.resize_with_pad(input_image, IMG_SIZE, IMG_SIZE)
         input_target = tf.image.resize_with_pad(input_target, IMG_SIZE, IMG_SIZE)
-
-    input_image = tf.image.random_brightness(input_image, 0.3)
-    input_image = tf.image.random_contrast(input_image, 0.2, 0.5)
 
     input_image, input_target = normalize(input_image, input_target)
 
@@ -186,17 +185,20 @@ def create_pipeline_performance(path, bs=32):
     val_dir = os.path.join(path, "val/")
     test_dir = os.path.join(path, "test/")
 
-    train_dataset = tf.data.Dataset.list_files(train_dir + "l_chan/*.jpg", seed=TRAIN_SEED, shuffle=False)
-    val_dataset = tf.data.Dataset.list_files(val_dir + "l_chan/*.jpg", seed=VAL_SEED, shuffle=False)
-    test_dataset = tf.data.Dataset.list_files(test_dir + "l_chan/*.jpg", seed=TEST_SEED, shuffle=False)
+    data_path = join(path, "lab_dataset.npz")
 
-    train_dataset = train_dataset.map(parse_image)
-    val_dataset = val_dataset.map(parse_image)
-    test_dataset = test_dataset.map(parse_image)
+    with np.load(data_path) as data:
+        train = {"L": data["X_train"], "ab": data["y_train"]}
+        val = {"L": data["X_val"], "ab": data["y_val"]}
+        test = {"L": data["X_test"], "ab": data["y_test"]}
 
-    train_num = len([file for file in glob(str(os.path.join(train_dir, "l_chan/*.jpg")))])
-    val_num = len([file for file in glob(str(os.path.join(val_dir, "l_chan/*.jpg")))])
-    test_num = len([file for file in glob(str(os.path.join(test_dir, "l_chan/*.jpg")))])
+    train_dataset = tf.data.Dataset.from_tensor_slices((train))
+    val_dataset = tf.data.Dataset.from_tensor_slices((val))
+    test_dataset = tf.data.Dataset.from_tensor_slices((test))
+
+    train_num = len(train["L"])
+    val_num = len(val["L"])
+    test_num = len(test["L"])
 
     dataset = {"train": train_dataset, "val": val_dataset, "test": test_dataset}
 
@@ -224,4 +226,4 @@ def create_pipeline_performance(path, bs=32):
     print(f"{val_num} images found in {val_dir}.")
     print(f"{test_num} images found in {test_dir}.")
 
-    return dataset["train"], dataset["val"], dataset["test"]
+    return dataset["train"], dataset["val"], dataset["test"], train_num, test_num

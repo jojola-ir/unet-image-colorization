@@ -55,7 +55,7 @@ def unet(n_levels, initial_features=32, n_blocks=2, kernel_size=3,
             x = keras.layers.SeparableConv2D(initial_features * 2 ** level, **convpars)(x)
 
 
-    activation = "sigmoid" if out_channels == 1 else "tanh"
+    activation = "tanh"
     x = keras.layers.SeparableConv2D(out_channels, kernel_size=1, activation=activation, padding="same")(x)
     model = keras.Model(inputs=[inputs], outputs=x, name=f"UNET-L{n_levels}-F{initial_features}")
 

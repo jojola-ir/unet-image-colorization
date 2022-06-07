@@ -129,13 +129,10 @@ def main():
     # data loading
     path = os.path.join(datapath)
 
-    NUM_TRAIN = len([name for name in os.listdir(os.path.join(path, "train/l_chan/")) if name.endswith(".jpg")])
-    NUM_TEST = len([name for name in os.listdir(os.path.join(path, "test/l_chan/")) if name.endswith(".jpg")])
+    train_set, val_set, test_set, NUM_TRAIN, NUM_TEST = create_pipeline_performance(path)
 
     print(f"{NUM_TRAIN} images for train")
     print(f"{NUM_TEST} images for test")
-
-    train_set, val_set, test_set = create_pipeline_performance(path)
 
     # model building
     model_name = "unet"
@@ -153,7 +150,7 @@ def main():
                                                               end_learning_rate=0.000001,
                                                               power=1.5)
 
-    losses = ["MAE"]
+    losses = ["mae"]
     metrics = ["accuracy"]
 
     optimizer = keras.optimizers.Adam(learning_rate=lr_scheduler)
@@ -179,7 +176,8 @@ def main():
         cb_patience = 5
     else:
         cb_patience = epochs // 10
-    cb = create_callbacks(run_logs, checkpoint_path, cb_patience, True)
+    # cb = create_callbacks(run_logs, checkpoint_path, cb_patience, True)
+    cb = create_callbacks(run_logs, checkpoint_path, 150, True)
 
     EPOCH_STEP_TRAIN = NUM_TRAIN // bs
     EPOCH_STEP_TEST = NUM_TEST // bs

@@ -7,10 +7,11 @@ import splitfolders
 from tqdm import tqdm
 
 from os.path import exists, join
+from PIL import Image, ImageCms
 from skimage import io
 from skimage.color import rgb2lab
 from sklearn.model_selection import train_test_split
-from PIL import Image, ImageCms
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 
 def raw_splitter(src, dest, test_rate, create_lab):
@@ -126,31 +127,48 @@ def npz_images_converter(src, test_rate):
                 Test images rate.
             """
 
-    ds_path = join(src, "img_dataset/")
+    # ds_path = join(src, "img_dataset/")
+    #
+    # if exists(ds_path) is False:
+    #     os.makedirs(ds_path)
 
-    if exists(ds_path) is False:
-        os.makedirs(ds_path)
-
-    file_count = len([name for name in os.listdir(src) if name.endswith(".jpg")])
+    file_count = len([name for name in os.listdir(join(src, "images/")) if name.endswith(".jpg")])
     print("Converting RGB images to LAB...")
 
     inputs = []
     targets = []
 
-    for root, _, files in os.walk(src):
-        for f in tqdm(files, total=file_count):
-            if not f.endswith(".DS_Store"):
-                file = join(root, f)
-                rgb_img = io.imread(file)
-                lab_img = rgb2lab(rgb_img)
+    datagen = ImageDataGenerator(rescale=1/255.)
 
-                input = lab_img[:,:,0]
-                target = lab_img[:,:,1:]
-                inputs.append(input)
-                targets.append(target)
+    data = datagen.flow_from_directory(src,
+                                       batch_size=file_count,
+                                       class_mode=None)
 
-                if exists(join(ds_path, f)) is False:
-                    shutil.move(file, ds_path)
+    for image in tqdm(data[0], total=file_count):
+        lab_img = rgb2lab(image)
+        input = lab_img[:, :, 0]
+        target = lab_img[:, :, 1:]
+        inputs.append(input)
+        targets.append(target)
+
+    inputs = np.array(inputs)
+    inputs = inputs.reshape(inputs.shape + (1,))
+    targets = np.array(targets)
+
+    # for root, _, files in os.walk(src):
+    #     for f in tqdm(files, total=file_count):
+    #         if not f.endswith(".DS_Store"):
+    #             file = join(root, f)
+    #             rgb_img = io.imread(file)
+    #             lab_img = rgb2lab(rgb_img)
+    #
+    #             input = lab_img[:,:,0]
+    #             target = lab_img[:,:,1:]
+    #             inputs.append(input)
+    #             targets.append(target)
+    #
+    #             if exists(join(ds_path, f)) is False:
+    #                 shutil.move(file, ds_path)
 
     assert len(inputs) == len(targets), "inputs and targets must be of the same number"
 
